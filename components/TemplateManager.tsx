@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
-import { Template } from '../types.ts';
-import { enhanceText } from '../services/geminiService.ts';
-import { TemplateItem } from './TemplateItem.tsx';
-import { SparklesIcon } from './icons/SparklesIcon.tsx';
+import { Template } from '../types';
+import { enhanceText } from '../services/geminiService';
+import { TemplateItem } from './TemplateItem';
+import { SparklesIcon } from './icons/SparklesIcon';
 
 interface TemplateManagerProps {
   templates: Template[];

@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { TemplateManager } from './components/TemplateManager.tsx';
-import { ChatAssistant } from './components/ChatAssistant.tsx';
-import { ChatBot } from './components/ChatBot.tsx';
-import type { Template } from './types.ts';
-import { getTemplates, saveTemplate, deleteTemplate } from './services/supabaseService.ts';
+import { TemplateManager } from './components/TemplateManager';
+import { ChatAssistant } from './components/ChatAssistant';
+import { ChatBot } from './components/ChatBot';
+import type { Template } from './types';
+import { getTemplates, saveTemplate, deleteTemplate } from './services/supabaseService';
 
 const App: React.FC = () => {
   const [templates, setTemplates] = useState<Template[]>([]);

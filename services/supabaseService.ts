@@ -1,5 +1,6 @@
+
 import { createClient } from '@supabase/supabase-js';
-import type { Template } from '../types.ts';
+import type { Template } from '../types';
 
 // Use the provided Supabase credentials
 const supabaseUrl = 'https://cmopwojiyyxhhhdggyed.supabase.co';
