@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { getSuggestedReply } from '../services/geminiService';
-import { CameraIcon } from './icons/CameraIcon';
+import { getSuggestedReply } from '../services/geminiService.ts';
+import { CameraIcon } from './icons/CameraIcon.tsx';
 
 export const ChatAssistant: React.FC = () => {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);

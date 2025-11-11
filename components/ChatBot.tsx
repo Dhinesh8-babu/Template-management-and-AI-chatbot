@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { askChatbot } from '../services/geminiService';
-import type { ChatMessage } from '../types';
-import { SendIcon } from './icons/SendIcon';
+import { askChatbot } from '../services/geminiService.ts';
+import type { ChatMessage } from '../types.ts';
+import { SendIcon } from './icons/SendIcon.tsx';
 
 export const ChatBot: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);

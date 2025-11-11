@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
-import { Template } from '../types';
-import { TrashIcon } from './icons/TrashIcon';
-import { CopyIcon } from './icons/CopyIcon';
+import { Template } from '../types.ts';
+import { TrashIcon } from './icons/TrashIcon.tsx';
+import { CopyIcon } from './icons/CopyIcon.tsx';
 
 interface TemplateItemProps {
   template: Template;
