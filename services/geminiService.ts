@@ -1,16 +1,8 @@
-
 import { GoogleGenAI } from "@google/genai";
-
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  throw new Error("API_KEY environment variable not set");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 export const enhanceText = async (text: string): Promise<string> => {
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = `You are an expert in customer communication. Enhance the following text to be more friendly, professional, and empathetic, while keeping the core message intact. Correct any grammar or spelling mistakes. Return only the enhanced text. Text to enhance: "${text}"`;
     
     const response = await ai.models.generateContent({
@@ -27,6 +19,7 @@ export const enhanceText = async (text: string): Promise<string> => {
 
 export const getSuggestedReply = async (base64Image: string, mimeType: string, context: string): Promise<string> => {
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const imagePart = {
       inlineData: {
         mimeType: mimeType,
@@ -52,6 +45,7 @@ export const getSuggestedReply = async (base64Image: string, mimeType: string, c
 
 export const askChatbot = async (question: string): Promise<string> => {
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: question,
