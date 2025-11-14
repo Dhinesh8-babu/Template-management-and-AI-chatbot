@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
@@ -70,6 +71,18 @@ const TrashIcon = ({ className }) => (
   </svg>
 );
 
+const CopyIcon = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+    </svg>
+);
+
+const CheckIcon = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+    </svg>
+);
+
 
 // --- UI Components ---
 const Header = () => (
@@ -127,23 +140,58 @@ const TemplateModal = ({ template, onSave, onClose }) => {
     );
 };
 
-const TemplateCard = ({ template, onEdit, onDelete }) => (
-    <div className="bg-white rounded-lg shadow-md p-4 flex flex-col border-l-4 border-blue-500 h-full">
-        <div className="flex items-start gap-2 mb-2">
-            <ChatBubbleIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-1" />
-            <h3 className="text-lg font-bold text-blue-700 flex-grow">{template.title}</h3>
+const TemplateCard = ({ template, onEdit, onDelete }) => {
+    const [isCopied, setIsCopied] = useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(template.text);
+        setIsCopied(true);
+        setTimeout(() => {
+            setIsCopied(false);
+        }, 2000);
+    };
+
+    return (
+        <div className="bg-white rounded-lg shadow-md p-4 flex flex-col border-l-4 border-blue-500 h-full">
+            <div className="flex items-start gap-2 mb-2">
+                <ChatBubbleIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-1" />
+                <h3 className="text-lg font-bold text-blue-700 flex-grow">{template.title}</h3>
+            </div>
+            <p className="text-gray-600 flex-grow mb-4">{template.text}</p>
+            <div className="flex justify-end gap-2 text-gray-400 mt-auto">
+                <div className="relative group">
+                    <button
+                        onClick={handleCopy}
+                        className={`p-1 rounded-full transition-colors duration-200 ${isCopied ? 'text-green-500 bg-green-100' : 'hover:text-blue-600 hover:bg-gray-100'}`}
+                        aria-label="Copy template text"
+                        disabled={isCopied}
+                    >
+                        {isCopied ? <CheckIcon className="h-5 w-5" /> : <CopyIcon className="h-5 w-5" />}
+                    </button>
+                    <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 text-xs text-white bg-gray-800 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                        {isCopied ? 'Copied!' : 'Copy'}
+                    </span>
+                </div>
+                <div className="relative group">
+                    <button onClick={() => onEdit(template)} className="p-1 rounded-full hover:text-blue-600 hover:bg-gray-100" aria-label="Edit template">
+                        <EditIcon className="h-5 w-5" />
+                    </button>
+                    <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 text-xs text-white bg-gray-800 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                        Edit
+                    </span>
+                </div>
+                <div className="relative group">
+                    <button onClick={() => onDelete(template.id)} className="p-1 rounded-full hover:text-red-600 hover:bg-gray-100" aria-label="Delete template">
+                        <TrashIcon className="h-5 w-5" />
+                    </button>
+                     <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 text-xs text-white bg-gray-800 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                        Delete
+                    </span>
+                </div>
+            </div>
         </div>
-        <p className="text-gray-600 flex-grow mb-4">{template.text}</p>
-        <div className="flex justify-end gap-2 text-gray-400 mt-auto">
-            <button onClick={() => onEdit(template)} className="hover:text-blue-600">
-                <EditIcon className="h-5 w-5" />
-            </button>
-            <button onClick={() => onDelete(template.id)} className="hover:text-red-600">
-                <TrashIcon className="h-5 w-5" />
-            </button>
-        </div>
-    </div>
-);
+    );
+};
 
 // --- Main App Component ---
 const App = () => {
