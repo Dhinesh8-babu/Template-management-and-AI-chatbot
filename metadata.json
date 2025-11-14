@@ -1,7 +1,5 @@
 {
-  "name": "AI Customer Support Assistant",
-  "description": "An application to save chat templates, enhance them with AI, get AI-powered reply suggestions, and chat with an AI assistant.",
-  "requestFramePermissions": [
-    "camera"
-  ]
+  "name": "Support Management System",
+  "description": "Search, manage, and copy templates for customer communication.",
+  "requestFramePermissions": []
 }
