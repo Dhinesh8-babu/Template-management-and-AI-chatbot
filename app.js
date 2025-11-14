@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
@@ -86,7 +87,15 @@ const CheckIcon = ({ className }) => (
 
 // --- UI Components ---
 const Header = () => (
-    <div className="bg-blue-600 rounded-lg shadow-md p-8 mb-8 text-white text-center">
+    <div className="relative bg-blue-600 rounded-lg shadow-md p-8 mb-8 text-white text-center">
+        <a
+            href="https://dhinesh8-babu.github.io/Maintenance-and-insurance-tracker/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute top-4 right-4 z-10 px-4 py-2 bg-white text-blue-600 font-semibold rounded-lg shadow-md hover:bg-blue-100 transition-colors text-sm"
+        >
+            Go to Tracker
+        </a>
         <div className="flex items-center justify-center gap-4">
             <ChatBubbleIcon className="h-10 w-10"/>
             <h1 className="text-4xl font-bold">Support Management System</h1>
