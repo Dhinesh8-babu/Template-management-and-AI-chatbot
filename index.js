@@ -1,0 +1,793 @@
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import ReactDOM from 'react-dom/client';
+import { GoogleGenAI } from "@google/genai";
+import { createClient } from '@supabase/supabase-js';
+
+// --- Supabase Service ---
+const supabaseUrl = 'https://cmopwojiyyxhhhdggyed.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNtb3B3b2ppeXl4aGhoZGdneWVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4NjgzMjAsImV4cCI6MjA3ODQ0NDMyMH0.apd2SLcK3PwgSOaNGHcpFZ2J26n-3CYOANANbT0XjaE';
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("Supabase URL and Key must be provided.");
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+const TABLE_NAME = 'templates';
+
+const getTemplates = async () => {
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching templates:', error);
+    throw new Error('Failed to fetch templates from the database.');
+  }
+
+  return data;
+};
+
+const saveTemplate = async (templateData, id) => {
+  if (id) {
+    const { data, error } = await supabase
+      .from(TABLE_NAME)
+      .update(templateData)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error updating template:', error);
+      throw new Error('Failed to update template.');
+    }
+    return data;
+  } else {
+    const { data, error } = await supabase
+      .from(TABLE_NAME)
+      .insert([templateData])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating template:', error);
+      throw new Error('Failed to create template.');
+    }
+    return data;
+  }
+};
+
+const deleteTemplate = async (id) => {
+  const { error } = await supabase
+    .from(TABLE_NAME)
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting template:', error);
+    throw new Error('Failed to delete template.');
+  }
+};
+
+// --- Gemini Service ---
+const enhanceText = async (text) => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const prompt = `You are an expert in customer communication. Enhance the following text to be more friendly, professional, and empathetic, while keeping the core message intact. Correct any grammar or spelling mistakes. Return only the enhanced text. Text to enhance: "${text}"`;
+    
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+
+    return response.text.trim();
+  } catch (error) {
+    console.error("Error enhancing text:", error);
+    throw new Error("Failed to enhance text with AI.");
+  }
+};
+
+const getSuggestedReply = async (base64Image, mimeType, context) => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const imagePart = {
+      inlineData: {
+        mimeType: mimeType,
+        data: base64Image,
+      },
+    };
+    
+    const textPart = {
+      text: `You are a friendly and helpful customer support assistant. Analyze the attached screenshot of a customer chat. Based on the conversation and the following context, generate a warm, empathetic, and helpful reply to the customer. Context: "${context || 'No additional context provided.'}". Return only the suggested reply.`,
+    };
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: { parts: [imagePart, textPart] },
+    });
+
+    return response.text.trim();
+  } catch (error) {
+    console.error("Error getting suggested reply:", error);
+    throw new Error("Failed to get AI suggestion.");
+  }
+};
+
+const askChatbot = async (question) => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: question,
+    });
+
+    return response.text.trim();
+  } catch (error) {
+    console.error("Error asking chatbot:", error);
+    throw new Error("Failed to get a response from the chatbot.");
+  }
+};
+
+
+// --- Icon Components ---
+const SparklesIcon = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M9.93 2.55a2 2 0 0 0-1.86 0L6.5 4l-1.58.55a2 2 0 0 0-1.07 1.07L3.45 7.5 2 9.07a2 2 0 0 0 0 1.86L3.45 12.5l.4 1.88a2 2 0 0 0 1.07 1.07L6.5 16l1.58.55a2 2 0 0 0 1.86 0L11.5 16l1.58-.55a2 2 0 0 0 1.07-1.07L14.55 12.5 16 10.93a2 2 0 0 0 0-1.86L14.55 7.5l-.4-1.88a2 2 0 0 0-1.07-1.07L11.5 4z" />
+    <path d="M18 6 16 2" />
+    <path d="m22 14-2-2" />
+    <path d="M6 18l-2 4" />
+    <path d="m14 22 2-2" />
+  </svg>
+);
+
+const TrashIcon = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M3 6h18" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+  </svg>
+);
+
+const CopyIcon = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    width="24"
+    height="24"
+    viewBox="0 0 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+  </svg>
+);
+
+const CameraIcon = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    width="24"
+    height="24"
+    viewBox="0 0 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+    <circle cx="12" cy="13" r="3" />
+  </svg>
+);
+
+const SendIcon = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    width="24"
+    height="24"
+    viewBox="0 0 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <line x1="22" y1="2" x2="11" y2="13" />
+    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+  </svg>
+);
+
+const UploadIcon = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    width="24"
+    height="24"
+    viewBox="0 0 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="17 8 12 3 7 8" />
+    <line x1="12" x2="12" y1="3" y2="15" />
+  </svg>
+);
+
+
+// --- UI Components ---
+const TemplateItem = ({ template, onSelect, onDelete, isSelected }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    onDelete(template.id);
+  };
+
+  const handleCopy = (e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(template.text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  
+  return (
+    <div
+      onClick={() => onSelect(template)}
+      className={`p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+        isSelected
+          ? 'bg-blue-100 dark:bg-blue-900 ring-2 ring-blue-500'
+          : 'bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600'
+      }`}
+    >
+      <div className="flex justify-between items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-md font-semibold text-slate-800 dark:text-slate-100 truncate">
+            {template.title}
+          </p>
+          <p className="text-sm text-slate-600 dark:text-slate-300 break-words mt-1">
+            {template.text}
+          </p>
+        </div>
+        <div className="flex items-center flex-shrink-0">
+          <button
+            onClick={handleCopy}
+            className="p-1 text-slate-400 hover:text-blue-500 transition-colors duration-200"
+            aria-label="Copy template text"
+          >
+            {copied ? <span className="text-xs text-blue-500">Copied!</span> : <CopyIcon className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={handleDelete}
+            className="p-1 text-slate-400 hover:text-red-500 transition-colors duration-200"
+            aria-label="Delete template"
+          >
+            <TrashIcon className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const TemplateManager = ({ 
+  templates, 
+  onSaveTemplate, 
+  onDeleteTemplate, 
+  isLoading: isFetchingTemplates, 
+  error: fetchError 
+}) => {
+  const [currentTitle, setCurrentTitle] = useState('');
+  const [currentText, setCurrentText] = useState('');
+  const [currentId, setCurrentId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [enhanceError, setEnhanceError] = useState(null);
+
+  const handleSelectTemplate = (template) => {
+    setCurrentTitle(template.title);
+    setCurrentText(template.text);
+    setCurrentId(template.id);
+  };
+
+  const handleNewTemplate = () => {
+    setCurrentTitle('');
+    setCurrentText('');
+    setCurrentId(null);
+  };
+
+  const handleEnhance = async () => {
+    if (!currentText.trim()) return;
+    setIsEnhancing(true);
+    setEnhanceError(null);
+    try {
+      const enhanced = await enhanceText(currentText);
+      setCurrentText(enhanced);
+    } catch (err) {
+      setEnhanceError(err instanceof Error ? err.message : 'An unknown error occurred.');
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  const handleSave = () => {
+    if (!currentText.trim() || !currentTitle.trim()) return;
+    onSaveTemplate({ title: currentTitle, text: currentText }, currentId ?? undefined);
+    if (!currentId) {
+      handleNewTemplate();
+    }
+  };
+
+  const filteredTemplates = useMemo(() => {
+    return templates.filter(t => 
+      t.title.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [templates, searchTerm]);
+  
+  return (
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg flex flex-col h-full">
+      <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-4">Template Saver</h2>
+      
+      <div className="flex flex-col space-y-4 flex-grow min-h-0">
+        <div className="space-y-3">
+          <input
+            type="text"
+            value={currentTitle}
+            onChange={(e) => setCurrentTitle(e.target.value)}
+            placeholder="Template title..."
+            className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+            aria-label="Template Title"
+          />
+          <textarea
+            value={currentText}
+            onChange={(e) => setCurrentText(e.target.value)}
+            placeholder="Template content..."
+            className="w-full h-32 p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+            aria-label="Template Content"
+          />
+        </div>
+
+        {enhanceError && <p className="text-sm text-red-500">{enhanceError}</p>}
+        
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleEnhance}
+            disabled={isEnhancing || !currentText.trim()}
+            className="flex-1 min-w-[120px] flex items-center justify-center gap-2 bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed transition-all duration-200"
+          >
+            {isEnhancing ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <SparklesIcon className="w-5 h-5" />
+            )}
+            <span>{isEnhancing ? 'Enhancing...' : 'Enhance with AI'}</span>
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!currentText.trim() || !currentTitle.trim()}
+            className="flex-1 min-w-[80px] bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-blue-300 transition-colors duration-200"
+          >
+            {currentId ? 'Save' : 'Add New'}
+          </button>
+          <button
+            onClick={handleNewTemplate}
+            className="flex-1 min-w-[80px] bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold py-2 px-4 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500 transition-colors duration-200"
+          >
+            Clear
+          </button>
+        </div>
+
+        <div className="pt-4 border-t border-slate-200 dark:border-slate-700 flex flex-col flex-grow min-h-0">
+          <div className="flex justify-between items-center mb-2 gap-4">
+            <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200 flex-shrink-0">Saved Templates</h3>
+            <input
+              type="search"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by title..."
+              className="w-full max-w-xs p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+              aria-label="Search Templates"
+            />
+          </div>
+          <div className="flex-grow overflow-y-auto space-y-2 pr-2 -mr-2">
+            {isFetchingTemplates ? (
+              <p className="text-center text-slate-500 dark:text-slate-400 py-4">Loading templates...</p>
+            ) : fetchError ? (
+               <p className="text-center text-red-500 py-4">{fetchError}</p>
+            ) : filteredTemplates.length > 0 ? (
+              filteredTemplates.map(t => (
+                <TemplateItem
+                  key={t.id}
+                  template={t}
+                  onSelect={handleSelectTemplate}
+                  onDelete={onDeleteTemplate}
+                  isSelected={t.id === currentId}
+                />
+              ))
+            ) : (
+              <p className="text-center text-slate-500 dark:text-slate-400 py-4">
+                {templates.length > 0 ? 'No matching templates found.' : 'No templates saved yet.'}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ChatAssistant = () => {
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [context, setContext] = useState('');
+  const [suggestion, setSuggestion] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleCaptureAndSuggest = async () => {
+    setIsLoading(true);
+    setError(null);
+    setSuggestion('');
+    setCapturedImage(null);
+
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+      });
+      
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      
+      video.onloadedmetadata = () => {
+        video.play();
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          stream.getTracks().forEach(track => track.stop());
+          throw new Error('Could not get canvas context');
+        }
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setCapturedImage(dataUrl);
+
+        stream.getTracks().forEach(track => track.stop());
+
+        const base64Image = dataUrl.split(',')[1];
+        getSuggestedReply(base64Image, 'image/jpeg', context)
+          .then(suggested => {
+            setSuggestion(suggested);
+          })
+          .catch(err => {
+            setError(err instanceof Error ? err.message : 'An unknown error occurred getting suggestion.');
+          })
+          .finally(() => {
+              setIsLoading(false);
+          });
+      };
+      video.onerror = () => {
+        stream.getTracks().forEach(track => track.stop());
+        setError('Failed to load video stream for capture.');
+        setIsLoading(false);
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'NotAllowedError') {
+        setError('Screen capture permission was denied. Please allow screen sharing to use this feature.');
+      } else {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred during screen capture.');
+      }
+      setIsLoading(false);
+    }
+  };
+
+  const handleCopy = () => {
+    if (suggestion) {
+      navigator.clipboard.writeText(suggestion);
+    }
+  };
+
+  const handleReset = () => {
+      setCapturedImage(null);
+      setSuggestion('');
+      setError(null);
+      setIsLoading(false);
+  }
+  
+  return (
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg flex flex-col h-full">
+      <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-4">AI Chat Assistant</h2>
+      <div className="flex flex-col space-y-4 flex-grow">
+        
+        {capturedImage ? (
+           <div className="border-2 border-slate-300 dark:border-slate-600 rounded-lg p-4 text-center">
+             <img src={capturedImage} alt="Screen capture preview" className="max-h-40 mx-auto rounded-lg object-contain" />
+           </div>
+        ) : (
+          <div className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-6 text-center flex flex-col items-center justify-center flex-grow">
+              <CameraIcon className="w-10 h-10 mb-2 text-slate-500 dark:text-slate-400" />
+              <p className="font-semibold text-slate-500 dark:text-slate-400">Capture your screen to get an AI-powered reply.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">The AI will analyze the image of your chat window.</p>
+          </div>
+        )}
+
+        <textarea
+          value={context}
+          onChange={(e) => setContext(e.target.value)}
+          placeholder="Add any additional context here (optional)..."
+          className="w-full h-24 p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+          aria-label="Additional Context"
+        />
+
+        {capturedImage ? (
+             <button
+                onClick={handleReset}
+                className="w-full flex items-center justify-center gap-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold py-3 px-4 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500 transition-colors duration-200"
+                >
+                <CameraIcon className="w-5 h-5" />
+                <span>Capture New Screen</span>
+            </button>
+        ) : (
+            <button
+            onClick={handleCaptureAndSuggest}
+            disabled={isLoading}
+            className="w-full flex items-center justify-center gap-2 bg-green-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-green-700 disabled:bg-green-300 disabled:cursor-not-allowed transition-all duration-200"
+            >
+            {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+                <CameraIcon className="w-5 h-5" />
+            )}
+            <span>{isLoading ? 'Waiting for Capture...' : 'Capture Screen & Suggest'}</span>
+            </button>
+        )}
+
+        {error && <p className="text-sm text-red-500 text-center">{error}</p>}
+        
+        {isLoading && capturedImage && (
+            <div className="mt-4 p-4 bg-slate-100 dark:bg-slate-700 rounded-lg space-y-3 flex items-center justify-center">
+                 <div className="w-5 h-5 border-2 border-slate-500 border-t-transparent rounded-full animate-spin mr-3"></div>
+                <p className="text-slate-700 dark:text-slate-200">Generating suggestion...</p>
+            </div>
+        )}
+
+        {suggestion && (
+          <div className="mt-4 p-4 bg-slate-100 dark:bg-slate-700 rounded-lg space-y-3">
+            <h3 className="font-semibold text-slate-800 dark:text-white">Suggested Reply:</h3>
+            <p className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap">{suggestion}</p>
+            <button 
+              onClick={handleCopy}
+              className="text-sm bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold py-1 px-3 rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 transition-colors"
+            >
+              Copy
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ChatBot = () => {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isLoading]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const trimmedInput = input.trim();
+    if (!trimmedInput || isLoading) return;
+
+    const userMessage = { role: 'user', text: trimmedInput };
+    setMessages((prev) => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      const responseText = await askChatbot(trimmedInput);
+      const modelMessage = { role: 'model', text: responseText };
+      setMessages((prev) => [...prev, modelMessage]);
+    } catch (error) {
+      const errorMessage = {
+        role: 'model',
+        text: 'Sorry, I encountered an error. Please try again.',
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  return (
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg flex flex-col h-full">
+      <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-4">AI Chat Bot</h2>
+      <div className="flex-grow flex flex-col min-h-0">
+        <div className="flex-grow overflow-y-auto pr-2 -mr-2 space-y-4 mb-4">
+          {messages.map((msg, index) => (
+            <div
+              key={index}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div
+                className={`max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-xl whitespace-pre-wrap ${
+                  msg.role === 'user'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100'
+                }`}
+              >
+                {msg.text}
+              </div>
+            </div>
+          ))}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="max-w-xs p-3 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                <div className="flex items-center justify-center space-x-1">
+                    <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                    <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                    <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce"></div>
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+        <form onSubmit={handleSubmit} className="flex items-center gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask a question..."
+            className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+            aria-label="Chat input"
+            disabled={isLoading}
+          />
+          <button
+            type="submit"
+            disabled={isLoading || !input.trim()}
+            className="bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 disabled:bg-blue-300 dark:disabled:bg-blue-800 disabled:cursor-not-allowed transition-colors duration-200 flex-shrink-0"
+            aria-label="Send message"
+          >
+            <SendIcon className="w-6 h-6" />
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// --- Main App Component ---
+const App = () => {
+  const [templates, setTemplates] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchTemplates = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const fetchedTemplates = await getTemplates();
+      setTemplates(fetchedTemplates);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "An unknown error occurred while fetching templates.";
+      setError(message);
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTemplates();
+  }, [fetchTemplates]);
+
+
+  const handleSaveTemplate = async (data, id) => {
+    try {
+      await saveTemplate(data, id);
+      await fetchTemplates();
+    } catch (err) {
+      console.error("Failed to save template:", err);
+      const message = err instanceof Error ? err.message : "An unknown error occurred while saving.";
+      setError(`Save failed: ${message}`);
+    }
+  };
+
+  const handleDeleteTemplate = async (id) => {
+    try {
+      await deleteTemplate(id);
+      setTemplates(prev => prev.filter(t => t.id !== id));
+    } catch (err) {
+      console.error("Failed to delete template:", err);
+      const message = err instanceof Error ? err.message : "An unknown error occurred while deleting.";
+      setError(`Delete failed: ${message}`);
+      await fetchTemplates();
+    }
+  };
+  
+  return (
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-screen-2xl mx-auto">
+        <header className="text-center mb-8">
+          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-5xl">
+            AI Customer Support Assistant
+          </h1>
+          <p className="mt-4 text-lg text-slate-600 dark:text-slate-400">
+            Streamline your customer interactions with AI-powered tools.
+          </p>
+        </header>
+        
+        <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="h-[80vh]">
+            <TemplateManager 
+              templates={templates} 
+              onSaveTemplate={handleSaveTemplate}
+              onDeleteTemplate={handleDeleteTemplate}
+              isLoading={isLoading}
+              error={error}
+            />
+          </div>
+          <div className="h-[80vh]">
+            <ChatAssistant />
+          </div>
+          <div className="h-[80vh]">
+            <ChatBot />
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// --- React DOM Render ---
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error("Could not find root element to mount to");
+}
+const root = ReactDOM.createRoot(rootElement);
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
