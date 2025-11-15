@@ -6,7 +6,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 // --- Gemini Service ---
 const generateTemplateContent = async (prompt) => {
-    if (!process.env.API_KEY) {
+    if (typeof process === 'undefined' || typeof process.env === 'undefined' || !process.env.API_KEY) {
         throw new Error("API_KEY environment variable not set");
     }
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
