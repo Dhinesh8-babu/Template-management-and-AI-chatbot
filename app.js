@@ -6,9 +6,6 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 // --- Gemini Service ---
 const generateTemplateContent = async (prompt) => {
-    if (typeof process === 'undefined' || typeof process.env === 'undefined' || !process.env.API_KEY) {
-        throw new Error("API_KEY environment variable not set");
-    }
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     try {
@@ -34,7 +31,7 @@ const generateTemplateContent = async (prompt) => {
             }
         });
         
-        const jsonString = response.text.trim();
+        const jsonString = response.text.trim().replace(/^```json\s*/, '').replace(/```$/, '');
         return JSON.parse(jsonString);
 
     } catch (error) {
@@ -303,7 +300,9 @@ const TemplateCard = ({ template, onEdit, onDelete }) => {
                 <ChatBubbleIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-1" />
                 <h3 className="text-lg font-bold text-blue-700 flex-grow">{template.title}</h3>
             </div>
-            <p className="text-gray-600 flex-grow mb-4">{template.text}</p>
+            <div className="text-gray-600 flex-grow mb-4 overflow-y-auto" style={{ maxHeight: '120px' }}>
+                <p className="whitespace-pre-wrap">{template.text}</p>
+            </div>
             <div className="flex justify-end gap-2 text-gray-400 mt-auto">
                 <div className="relative group">
                     <button
