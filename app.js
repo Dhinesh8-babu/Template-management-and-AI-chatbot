@@ -6,6 +6,9 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 // --- Gemini Service ---
 const generateTemplateContent = async (prompt) => {
+    // Per platform requirements, the API key is sourced directly from process.env.
+    // The GoogleGenAI instance is created here to ensure it uses the latest key
+    // provided by the environment upon each request.
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     try {
@@ -31,14 +34,27 @@ const generateTemplateContent = async (prompt) => {
             }
         });
         
-        const jsonString = response.text.trim().replace(/^```json\s*/, '').replace(/```$/, '');
+        // The model should return JSON, but we'll clean up potential markdown formatting.
+        const rawText = response.text;
+        const jsonString = rawText.trim().replace(/^```json\s*|```\s*$/g, '');
+        
         return JSON.parse(jsonString);
 
     } catch (error) {
         console.error("Error generating template with Gemini:", error);
-        throw new Error("Failed to generate template. Please check the console for details.");
+        
+        // Provide more specific feedback to the user.
+        if (error.message.toLowerCase().includes('api key')) {
+             throw new Error("AI service authentication failed. Please check your API key configuration.");
+        }
+        if (error instanceof SyntaxError) {
+             throw new Error("The AI generated an invalid response. Please try again.");
+        }
+
+        throw new Error("An unexpected error occurred while generating the template.");
     }
 };
+
 
 // --- Supabase Service ---
 const supabaseUrl = 'https://cmopwojiyyxhhhdggyed.supabase.co';
@@ -300,7 +316,7 @@ const TemplateCard = ({ template, onEdit, onDelete }) => {
                 <ChatBubbleIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-1" />
                 <h3 className="text-lg font-bold text-blue-700 flex-grow">{template.title}</h3>
             </div>
-            <div className="text-gray-600 flex-grow mb-4 overflow-y-auto" style={{ maxHeight: '120px' }}>
+            <div className="text-gray-600 flex-grow mb-4 overflow-y-auto" style={{ maxHeight: '100px' }}>
                 <p className="whitespace-pre-wrap">{template.text}</p>
             </div>
             <div className="flex justify-end gap-2 text-gray-400 mt-auto">
